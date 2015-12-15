@@ -1,9 +1,10 @@
 package com.gmail.pdnghiadev.ex3_2activityandfragment;
 
-import android.app.Fragment;
 import android.content.Context;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.os.Parcelable;
+import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -19,21 +20,24 @@ import java.util.List;
 
 /**
  * Created by PDNghiaDev on 11/30/2015.
+ * Class perform load data get to Activity
  */
 public class TapCountResultFragment extends Fragment implements OnButtonClickListener {
     public static final String TAG = "TapCountResultFragment";
-    private List<ResultItem> list;
-
+    private List<ResultItem> list = new ArrayList<>();
+    private ResultItemAdapter adapter;
+    private static final String LIST_HIGHSCORE = "list_highscore";
 
     @Override
     public void onClick(ResultItem item) {
         // GET View and update on View
-        if (list == null)
-            list = new ArrayList<>();
         list.add(item);
+
+        if (list.size() >= 1) {
+            adapter.notifyDataSetChanged();
+        }
+
     }
-
-
 
     @Override
     public void onAttach(Context context) {
@@ -44,22 +48,28 @@ public class TapCountResultFragment extends Fragment implements OnButtonClickLis
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        Log.d(TAG, "onCreateView: ");
+        if (savedInstanceState != null) {
+            list = savedInstanceState.getParcelableArrayList(LIST_HIGHSCORE);
+        }
         View view = inflater.inflate(R.layout.result_fragment, container, false);
-        if (list != null) {
-            ResultItemAdapter adapter = new ResultItemAdapter(this.getActivity(), R.layout.result_item, list);
 
+        if (list != null) {
+            adapter = new ResultItemAdapter(this.getActivity(), R.layout.result_item, list);
             ListView listView = (ListView) view.findViewById(R.id.listView);
             listView.setDivider(new ColorDrawable(getResources().getColor(R.color.colorDivider)));
             listView.setDividerHeight(1);
             listView.setAdapter(adapter);
         }
+
         return view;
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
         Log.d(TAG, "onCreate");
+        super.onCreate(savedInstanceState);
+        setRetainInstance(true);
     }
 
     @Override
@@ -84,6 +94,8 @@ public class TapCountResultFragment extends Fragment implements OnButtonClickLis
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         Log.d(TAG, "onSaveInstanceState");
+
+        outState.putParcelableArrayList(LIST_HIGHSCORE, (ArrayList<? extends Parcelable>) list);
     }
 
     @Override

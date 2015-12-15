@@ -36,7 +36,7 @@
         android:layout_below="@+id/ch_time"
         android:layout_centerHorizontal="true"
         android:text="START"
-        android:background="@color/colorAccent"
+        android:background="@drawable/custom_button"
         android:textColor="@android:color/white"
         android:layout_marginTop="20dp"/>
 
@@ -47,7 +47,7 @@
         android:layout_below="@+id/btn_start"
         android:layout_centerHorizontal="true"
         android:text="TAP"
-        android:background="@color/colorAccent"
+        android:background="@drawable/custom_button"
         android:textColor="@android:color/white"
         android:layout_marginTop="20dp"
         android:paddingLeft="30dp"
