@@ -32,7 +32,7 @@ public class TapCountResultFragment extends Fragment implements OnButtonClickLis
     public void onClick(ResultItem item) {
         // GET View and update on View
         list.add(item);
-
+        Log.d(TAG, "onClick: " + list.size());
         if (list.size() >= 1) {
             adapter.notifyDataSetChanged();
         }

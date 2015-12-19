@@ -19,19 +19,20 @@ public class MainActivity extends FragmentActivity {
     private static final String TAG = "MainActivity";
     private static final String TAG_RESULT_FRAGMENT = "ResultFragment";
     public static final int TIME_COUNT = 10000; // 10s
-    public static final String TIME_KEY = "time_key";
-    public static final String NUMBER_COUNT = "number_count";
-    public static final String LAST_TIME = "last_time";
-    public static final String TIME = "time";
+    public static final String CURRENT_TIME = "current_time";
+    public static final String COUNT_CHANGE = "count_change";
+    public static final String START_TIME = "start_time";
+    public static final String DURATION_TIME = "duration_time";
+    public static final String COUNT = "count";
     private Button mBtnStart, mBtnTap;
     private Chronometer mTime;
     private TextView mCountTap; // Save the count tap when user press
-    private long mStartTime; // Get the time when start
+    private long mStartTime = 0; // Get the time when start
     private int mCount; // Save the count tap after load screen again
     private TapCountResultFragment fragment; // Fragment show list highscore
-    private long mLastStopTime; //  Get the time when configuration change or press Home
-    private long mTimeKey; // Get the time of Chronometer
-    private long mDuration;
+    private long mDurationTime = 0; // Thời gian đã trôi qua
+    private long mCurrentTime = 0; // Thời gian lúc người dùng xoay màn hình
+    private int countChange = 0; // Số lần xoay màn hình
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,41 +41,6 @@ public class MainActivity extends FragmentActivity {
         setContentView(R.layout.activity_main);
 
         loadComponents();
-
-        if (savedInstanceState != null) {
-            mLastStopTime = savedInstanceState.getLong(LAST_TIME);
-            mTimeKey = savedInstanceState.getLong(TIME_KEY);
-            if (mTimeKey > 0) {
-                mTime.setBase(mTimeKey);
-                mBtnStart.setText("Resume");
-            } else {
-                mTime.setBase(SystemClock.elapsedRealtime());
-            }
-            mCount = savedInstanceState.getInt(NUMBER_COUNT);
-            mCountTap.setText(String.valueOf(mCount));
-            mDuration = savedInstanceState.getLong(TIME);
-        } else {
-            mLastStopTime = 0;
-        }
-
-        mTime.setOnChronometerTickListener(new Chronometer.OnChronometerTickListener() {
-            @Override
-            public void onChronometerTick(Chronometer chronometer) {
-                long totalTime = TIME_COUNT - mDuration;
-
-                if (mLastStopTime == 0) { // If the screen isn't configuration change
-                    if (SystemClock.elapsedRealtime() - mStartTime >= TIME_COUNT) {
-                        pauseTapping();
-                    }
-                } else { // If the screen is configuration change
-                    if (SystemClock.elapsedRealtime() - mStartTime >= totalTime) {
-                        pauseTapping();
-                        mLastStopTime = 0;
-                    }
-                }
-
-            }
-        });
 
         mBtnStart.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -98,6 +64,9 @@ public class MainActivity extends FragmentActivity {
         // over a configuration change
         if (fragment == null) {
             fragment = new TapCountResultFragment();
+        }
+
+        if (!fragment.isAdded()) {
             fm.beginTransaction().add(R.id.fl_result_fragment, fragment, TAG_RESULT_FRAGMENT).commit();
         }
 
@@ -114,6 +83,22 @@ public class MainActivity extends FragmentActivity {
     protected void onResume() {
         super.onResume();
         Log.d(TAG, "onResume");
+        mTime.setOnChronometerTickListener(new Chronometer.OnChronometerTickListener() {
+            @Override
+            public void onChronometerTick(Chronometer chronometer) {
+
+                if (countChange == 0) { // Trạng thái đầu tiên chạy từ 0 -> TIME_COUNT
+                    if (SystemClock.elapsedRealtime() - mStartTime >= TIME_COUNT) {
+                        pauseTapping();
+                    }
+                } else { // Trạng thái đang chạy tạm dừng 0 -> 2s -> 4s -> TIME_COUNT
+                    long totalTime = TIME_COUNT - mDurationTime; // Tổng số thời gian còn lại sau khi trừ đi thời gian trôi qua VD: 10 - 2 = 8
+                    if (SystemClock.elapsedRealtime() - mStartTime >= totalTime) {
+                        pauseTapping();
+                    }
+                }
+            }
+        });
     }
 
     @Override
@@ -135,27 +120,39 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void startTapping() {
+        // Thay đổi trạng thái Button
+        mBtnStart.setEnabled(false);
+        mBtnTap.setEnabled(true);
 
         mStartTime = SystemClock.elapsedRealtime();
-        if (mLastStopTime == 0) { // If the screen isn't configuration change
-            mTime.setBase(SystemClock.elapsedRealtime());
-            mCount = 0;
-        } else { // If the screen is configuration change
-            long intervalOnPause = (SystemClock.elapsedRealtime() - mLastStopTime);
-            mTime.setBase(mTimeKey + intervalOnPause);
-        }
-        mTime.start();
-        mBtnTap.setEnabled(true);
-        mBtnStart.setEnabled(false);
 
+        if (countChange == 0) { // Trạng thái lần đầu nhấn
+            mTime.setBase(SystemClock.elapsedRealtime()); // Thiết lập thòi gian theo hệ thống 00:00
+            mCount = 0;
+        } else { // Trạng thái khi xoay màn hình
+            mTime.setBase(SystemClock.elapsedRealtime() - mDurationTime); // Thiết lập thời gian sau khi trừ đi thời gian đã trôi qua => VD: 00:02
+        }
+
+        // Chạy Chronometer
+        mTime.start();
         mCountTap.setText(String.valueOf(mCount));
+
     }
 
     private void pauseTapping() {
+        // Thay đổi trạng thái Button
         mBtnTap.setEnabled(false);
-        mTime.stop();
         mBtnStart.setEnabled(true);
         mBtnStart.setText("Start");
+
+        // Trở lại mặc định
+        countChange = 0;
+        mStartTime = 0;
+        mCurrentTime = 0;
+        mDurationTime = 0;
+
+        // Dừng Chronometer
+        mTime.stop();
 
         // Pass Object to Fragment
         fragment.onClick(new ResultItem(new Date(), mCount));
@@ -171,24 +168,47 @@ public class MainActivity extends FragmentActivity {
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
-        mTime.stop();
-        mLastStopTime = SystemClock.elapsedRealtime();
-        mDuration = SystemClock.elapsedRealtime() - mStartTime;
-        if (mDuration < TIME_COUNT) {
-            outState.putLong(TIME_KEY, mTime.getBase());
-            outState.putLong(LAST_TIME, mLastStopTime);
-            outState.putLong(TIME, mDuration);
-            outState.putInt(NUMBER_COUNT, mCount);
-        }
-
-        mBtnStart.setEnabled(true);
         super.onSaveInstanceState(outState);
         Log.d(TAG, "onSaveInstanceState: ");
+
+        mTime.stop();
+
+        if (mStartTime == 0) {
+            countChange = 0;
+        } else {
+            if (mCurrentTime == 0) {
+                countChange++;
+                mCurrentTime = SystemClock.elapsedRealtime(); // Thời gian khi xoay màn hình
+            } else {
+                if (mCurrentTime - mStartTime != mDurationTime) { // Kiểm tra trạng thái khi bấm Resume sau 1 thời gian
+                                                                    // VD: Khi 00:02 và bấm Resume đến 00:04 thì xoay màn hình
+                    mCurrentTime = SystemClock.elapsedRealtime() + mDurationTime;
+                }
+            }
+            mDurationTime = mCurrentTime - mStartTime;
+            outState.putLong(DURATION_TIME, mDurationTime);
+            outState.putLong(START_TIME, mStartTime);
+            outState.putLong(CURRENT_TIME, mCurrentTime);
+        }
+        outState.putInt(COUNT_CHANGE, countChange);
+        outState.putInt(COUNT, mCount);
+
     }
 
     @Override
     protected void onRestoreInstanceState(Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
         Log.d(TAG, "onRestoreInstanceState: ");
+
+        countChange = savedInstanceState.getInt(COUNT_CHANGE);
+        mDurationTime = savedInstanceState.getLong(DURATION_TIME);
+        mStartTime = savedInstanceState.getLong(START_TIME);
+        mCurrentTime = savedInstanceState.getLong(CURRENT_TIME);
+        mCount = savedInstanceState.getInt(COUNT);
+        if (countChange != 0) {
+            mTime.setBase(SystemClock.elapsedRealtime() - mDurationTime);
+            mBtnStart.setText("Resume");
+        }
+        mCountTap.setText(String.valueOf(mCount));
     }
 }
